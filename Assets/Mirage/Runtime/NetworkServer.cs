@@ -348,7 +348,7 @@ namespace Mirage
         /// </summary>
         /// <param name="client">The local client</param>
         /// <param name="connection">The connection to the client</param>
-        internal void SetLocalConnection(INetworkClient client, IConnection connection)
+        internal void SetLocalConnection(INetworkClient client, SocketLayer.IConnection connection)
         {
             if (LocalPlayer != null)
             {
