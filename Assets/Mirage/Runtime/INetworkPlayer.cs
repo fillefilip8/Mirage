@@ -99,7 +99,7 @@ namespace Mirage
     /// </summary>
     public interface INetworkPlayer : IMessageHandler, IVisibilityTracker, IObjectOwner, IAuthenticatedObject, ISceneLoader
     {
-        IConnection Connection { get; }
+        SocketLayer.IConnection Connection { get; }
     }
 
     public interface IAuthenticatedObject

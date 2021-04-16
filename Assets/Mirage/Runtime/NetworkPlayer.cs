@@ -46,7 +46,7 @@ namespace Mirage
         /// <para>Transport layers connections begin at one. So on a client with a single connection to a server, the connectionId of that connection will be one. In NetworkServer, the connectionId of the local connection is zero.</para>
         /// <para>Clients do not know their connectionId on the server, and do not know the connectionId of other clients on the server.</para>
         /// </remarks>
-        private readonly IConnection connection;
+        private readonly SocketLayer.IConnection connection;
 
         /// <summary>
         /// General purpose object to hold authentication data, character selection, tokens, etc.
@@ -65,9 +65,9 @@ namespace Mirage
         /// The IP address / URL / FQDN associated with the connection.
         /// Can be useful for a game master to do IP Bans etc.
         /// </summary>
-        public virtual EndPoint Address => connection.GetEndPointAddress();
+        public virtual EndPoint Address => connection.EndPoint();
 
-        public IConnection Connection => connection;
+        public SocketLayer.IConnection Connection => connection;
 
         /// <summary>
         /// The NetworkIdentity for this connection.
@@ -87,7 +87,7 @@ namespace Mirage
         /// Creates a new NetworkConnection with the specified address and connectionId
         /// </summary>
         /// <param name="networkConnectionId"></param>
-        public NetworkPlayer(IConnection connection)
+        public NetworkPlayer(SocketLayer.IConnection connection)
         {
             Assert.IsNotNull(connection);
             this.connection = connection;

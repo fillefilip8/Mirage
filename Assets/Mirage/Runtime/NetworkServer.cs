@@ -5,11 +5,24 @@ using Cysharp.Threading.Tasks;
 using Mirage.Events;
 using Mirage.Logging;
 using Mirage.Serialization;
+using Mirage.SocketLayer;
 using UnityEngine;
 using UnityEngine.Serialization;
 
 namespace Mirage
 {
+    /// <summary>
+    /// This class will later be removed when we have a better implemenation for IDataHandler
+    /// </summary>
+    internal class DataHandler : IDataHandler
+    {
+        public event Action<SocketLayer.IConnection, ArraySegment<byte>> onData;
+        public void ReceivePacket(SocketLayer.IConnection connection, ArraySegment<byte> packet)
+        {
+            onData?.Invoke(connection, packet);
+        }
+    }
+
     /// <summary>
     /// The NetworkServer.
     /// </summary>
@@ -38,8 +51,11 @@ namespace Mirage
         /// </summary>
         public bool Listening = true;
 
-        // transport to use to accept connections
-        public Transport Transport;
+        [Tooltip("Creates Socket for Peer to use")]
+        public SocketCreator socketCreator;
+
+        Peer peer;
+        DataHandler dataHandler;
 
         [Tooltip("Authentication component attached to this object")]
         public NetworkAuthenticator authenticator;
@@ -150,8 +166,8 @@ namespace Mirage
             {
                 player.Connection?.Disconnect();
             }
-            if (Transport != null)
-                Transport.Disconnect();
+            if (peer != null)
+                peer.Close();
         }
 
         void Initialize()
@@ -169,10 +185,10 @@ namespace Mirage
             //Make sure connections are cleared in case any old connections references exist from previous sessions
             Players.Clear();
 
-            if (Transport is null)
-                Transport = GetComponent<Transport>();
-            if (Transport == null)
-                throw new InvalidOperationException("Transport could not be found for NetworkServer");
+            if (socketCreator is null)
+                socketCreator = GetComponent<SocketCreator>();
+            if (socketCreator == null)
+                throw new InvalidOperationException("SocketCreator could not be found for NetworkServer");
 
             if (authenticator != null)
             {
@@ -192,26 +208,38 @@ namespace Mirage
         /// </summary>
         /// <param name="maxConns">Maximum number of allowed connections</param>
         /// <returns></returns>
-        public async UniTask ListenAsync()
+        public void Listen()
         {
             Initialize();
 
-            try
-            {
-                Transport.Started.AddListener(TransportStarted);
-                Transport.Connected.AddListener(TransportConnected);
-                await Transport.ListenAsync();
-            }
-            catch (Exception ex)
-            {
-                logger.LogException(ex);
-            }
-            finally
-            {
-                Transport.Connected.RemoveListener(TransportConnected);
-                Transport.Started.RemoveListener(TransportStarted);
-                Cleanup();
-            }
+            ISocket socket = socketCreator.CreateServerSocket();
+            dataHandler = new DataHandler();
+            peer = new Peer(socket, dataHandler, logger: LogFactory.GetLogger<Peer>());
+            System.Net.EndPoint endpoint = socketCreator.GetBindEndPoint();
+
+            peer.OnConnected += Peer_OnConnected;
+            peer.OnDisconnected += Peer_OnDisconnected;
+            peer.Bind(endpoint);
+
+            TransportStarted();
+        }
+
+        void OnClose()
+        {
+            // todo where do we call this??
+            Cleanup();
+            peer.OnConnected -= Peer_OnConnected;
+            peer.OnDisconnected -= Peer_OnDisconnected;
+        }
+
+        private void Peer_OnConnected(SocketLayer.IConnection conn)
+        {
+            TransportConnected(conn);
+        }
+
+        private void Peer_OnDisconnected(SocketLayer.IConnection conn, DisconnectReason reason)
+        {
+            throw new NotImplementedException();
         }
 
         private void TransportStarted()
@@ -222,7 +250,7 @@ namespace Mirage
             _started?.Invoke();
         }
 
-        private void TransportConnected(IConnection connection)
+        private void TransportConnected(SocketLayer.IConnection connection)
         {
             INetworkPlayer networkConnectionToClient = GetNewPlayer(connection);
             ConnectionAcceptedAsync(networkConnectionToClient).Forget();
@@ -232,7 +260,7 @@ namespace Mirage
         /// This starts a network "host" - a server and client in the same application.
         /// <para>The client returned from StartHost() is a special "local" client that communicates to the in-process server using a message queue instead of the real network. But in almost all other cases, it can be treated as a normal client.</para>
         /// </summary>
-        public UniTask StartHost(NetworkClient client)
+        public void StartHost(NetworkClient client)
         {
             if (!client)
                 throw new InvalidOperationException("NetworkClient not assigned. Unable to StartHost()");
@@ -241,7 +269,7 @@ namespace Mirage
             LocalClient = client;
 
             // start listening to network connections
-            UniTask task = ListenAsync();
+            Listen();
 
             Active = true;
 
@@ -253,7 +281,6 @@ namespace Mirage
             _onStartHost?.Invoke();
 
             logger.Log("NetworkServer StartHost");
-            return task;
         }
 
         /// <summary>
@@ -294,7 +321,7 @@ namespace Mirage
         /// <summary>
         /// Creates a new INetworkConnection based on the provided IConnection.
         /// </summary>
-        public virtual INetworkPlayer GetNewPlayer(IConnection connection)
+        public virtual INetworkPlayer GetNewPlayer(SocketLayer.IConnection connection)
         {
             return new NetworkPlayer(connection);
         }
