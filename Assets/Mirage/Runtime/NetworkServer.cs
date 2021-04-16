@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using Cysharp.Threading.Tasks;
 using Mirage.Events;
 using Mirage.Logging;
@@ -166,8 +167,7 @@ namespace Mirage
             {
                 player.Connection?.Disconnect();
             }
-            if (peer != null)
-                peer.Close();
+            peer?.Close();
         }
 
         void Initialize()
@@ -206,8 +206,6 @@ namespace Mirage
         /// <summary>
         /// Start the server, setting the maximum number of connections.
         /// </summary>
-        /// <param name="maxConns">Maximum number of allowed connections</param>
-        /// <returns></returns>
         public void Listen()
         {
             Initialize();
@@ -215,7 +213,7 @@ namespace Mirage
             ISocket socket = socketCreator.CreateServerSocket();
             dataHandler = new DataHandler();
             peer = new Peer(socket, dataHandler, logger: LogFactory.GetLogger<Peer>());
-            System.Net.EndPoint endpoint = socketCreator.GetBindEndPoint();
+            EndPoint endpoint = socketCreator.GetBindEndPoint();
 
             peer.OnConnected += Peer_OnConnected;
             peer.OnDisconnected += Peer_OnDisconnected;
