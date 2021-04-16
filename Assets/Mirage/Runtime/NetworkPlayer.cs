@@ -65,7 +65,7 @@ namespace Mirage
         /// The IP address / URL / FQDN associated with the connection.
         /// Can be useful for a game master to do IP Bans etc.
         /// </summary>
-        public EndPoint Address => connection.EndPoint();
+        public EndPoint Address => connection.EndPoint;
 
         public SocketLayer.IConnection Connection => connection;
 
@@ -320,6 +320,8 @@ namespace Mirage
             clientOwnedObjects.Clear();
         }
 
+        [System.Obsolete("Use Peer instead")]
+        // todo implement alternative to this
         public async UniTask ProcessMessagesAsync()
         {
             var buffer = new MemoryStream();

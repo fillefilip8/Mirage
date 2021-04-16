@@ -30,6 +30,8 @@ namespace Mirage
         /// ProcessMessages loop, should loop unitil object is closed
         /// </summary>
         /// <returns></returns>
+        [System.Obsolete("Use Peer instead")]
+        // todo implement alternative to this
         UniTask ProcessMessagesAsync();
     }
 
